@@ -22,6 +22,14 @@ const MAX_PARTICIPANTS = 10;
 app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 app.use(express.json());
 
+// Handle /brainstorm-api prefix mismatch from frontend
+app.use((req, res, next) => {
+    if (req.url.startsWith('/brainstorm-api')) {
+        req.url = req.url.replace('/brainstorm-api', '/api');
+    }
+    next();
+});
+
 // ============================================
 // STORAGE LAYER (Redis or In-Memory fallback)
 // ============================================
@@ -514,9 +522,9 @@ async function handleThemeRequest(sessionId, bot, prompt, requesterId) {
 
 async function start() {
     await initStore();
-    server.listen(PORT, () => {
+    server.listen(PORT, '0.0.0.0', () => {
         console.log(`\n🚀 Brainstorm server running on port ${PORT}`);
-        console.log(`🌐 Frontend URL: ${FRONTEND_URL}`);
+        console.log(`🌐 Frontend Allowed Origin: ${FRONTEND_URL}`);
         console.log(`⏱️  Session TTL: ${SESSION_TTL / 3600} hours\n`);
     });
 }
