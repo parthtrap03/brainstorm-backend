@@ -38,32 +38,43 @@ initAI();
 // OpenRouter call via fetch (OpenAI-compatible)
 async function callOpenRouter(systemPrompt, userPrompt, maxTokens = 400) {
     const model = process.env.AI_MODEL || 'anthropic/claude-sonnet-4';
+    console.log(`🤖 Calling OpenRouter with model: ${model}`);
 
-    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${aiClient.apiKey}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': process.env.FRONTEND_URL || 'http://localhost:5173',
-            'X-Title': 'Brainstorm Bot'
-        },
-        body: JSON.stringify({
-            model,
-            max_tokens: maxTokens,
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt }
-            ]
-        })
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
-    if (!res.ok) {
-        const err = await res.text();
-        throw new Error(`OpenRouter error ${res.status}: ${err}`);
+    try {
+        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            signal: controller.signal,
+            headers: {
+                'Authorization': `Bearer ${aiClient.apiKey}`,
+                'Content-Type': 'application/json',
+                'HTTP-Referer': process.env.FRONTEND_URL || 'http://localhost:5173',
+                'X-Title': 'Brainstorm Bot'
+            },
+            body: JSON.stringify({
+                model,
+                max_tokens: maxTokens,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt }
+                ]
+            })
+        });
+
+        if (!res.ok) {
+            const err = await res.text();
+            console.error(`❌ OpenRouter error ${res.status}: ${err}`);
+            throw new Error(`OpenRouter error ${res.status}: ${err}`);
+        }
+
+        const data = await res.json();
+        console.log('✅ OpenRouter response received');
+        return data.choices[0].message.content;
+    } finally {
+        clearTimeout(timeout);
     }
-
-    const data = await res.json();
-    return data.choices[0].message.content;
 }
 
 // Anthropic call via SDK
@@ -90,7 +101,7 @@ class SessionBot {
         this.messages = [];
         this.mentionCount = 0;
         this.summaryCount = 0;
-        this.maxMentions = 15;
+        this.maxMentions = 50;
         this.maxSummaries = 1;
     }
 

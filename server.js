@@ -74,6 +74,9 @@ function initStore() {
                 retryStrategy: () => null // Don't retry
             });
 
+            // Prevent unhandled error crashes when Redis is unavailable
+            redis.on('error', () => { });
+
             const timeout = setTimeout(() => {
                 redis.disconnect();
                 console.log('⚠️  Redis not available — using in-memory storage (data resets on restart)');
@@ -386,6 +389,14 @@ io.on('connection', (socket) => {
     socket.on('voice-ice', ({ target, candidate }) => {
         io.to(target).emit('voice-ice', { from: socket.id, candidate });
     });
+
+    // ICE restart relay for auto-reconnection
+    socket.on('voice-restart', ({ target, offer }) => {
+        io.to(target).emit('voice-restart', { from: socket.id, offer });
+    });
+
+    // Keep-alive ping (no-op, keeps socket active for long sessions)
+    socket.on('voice-ping', () => { });
 
     // Disconnect
     socket.on('disconnect', async () => {
